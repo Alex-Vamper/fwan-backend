@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 // Replace with your MongoDB connection string
-const MONGO_URI = 'mongodb://127.0.0.1:27017/fwan_crates';
+const MONGO_URI = 'mongodb+srv://ghostrevamper:dgv2y5TwIgvYHjVc@fwan-db.d0wwvq1.mongodb.net/fwan?retryWrites=true&w=majority&appName=fwan-db';
 
 const connectDB = async () => {
   try {
