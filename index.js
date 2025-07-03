@@ -8,9 +8,22 @@ const PORT = 3000;
 // Parse JSON first
 app.use(express.json());
 
-// ✅ Use robust CORS config
+// ✅ Use robust CORS config allowing localhost and deployed frontend
+const allowedOrigins = [
+  'http://localhost:8080',
+  'https://fwan-admin.vercel.app' // <--- Replace with your actual Vercel frontend URL
+];
+
 app.use(cors({
-  origin: 'http://localhost:8080',
+  origin: function (origin, callback) {
+    // allow requests with no origin (like Postman, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
@@ -29,11 +42,8 @@ app.use('/api/users', userRoutes);
 const notificationsRoute = require('./routes/notifications');
 app.use('/api/notifications', notificationsRoute);
 
-
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
-
-
 
 // Connect to MongoDB and start server
 connectDB().then(() => {

@@ -1,12 +1,14 @@
 const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema({
-  type: String, // e.g., 'order', 'crate', 'system'
+  type: String,
   message: String,
-  status: { type: String, default: 'info' }, // 'success', 'warning', 'error', etc.
+  status: { type: String, default: 'info' },
   read: { type: Boolean, default: false },
   time: { type: Date, default: Date.now },
-  relatedId: { type: mongoose.Schema.Types.ObjectId, default: null }
+
+  // CHANGE THIS 👇
+  relatedId: { type: String, default: null }
 });
 
 module.exports = mongoose.model('Notification', NotificationSchema);
