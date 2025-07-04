@@ -247,8 +247,8 @@ router.post('/:crateId/assign-order', async (req, res) => {
   const { linkedOrder, location } = req.body;
 
   try {
-    const { crateId } = req.params;
-    const { linkedOrder, location } = req.body;
+    const crate = await Crate.findOne({ crateId });
+    if (!crate) return res.status(404).json({ error: 'Crate not found' });
 
     crate.linkedOrder = linkedOrder;
     crate.location = location;
@@ -256,20 +256,21 @@ router.post('/:crateId/assign-order', async (req, res) => {
 
     await crate.save();
 
+    const message = `Crate ${crateId} assigned to order ${linkedOrder}`;
+
     await logActivity({
       type: 'crate',
-      message: `Crate ${crateId} assigned to order ${linkedOrder}`,
+      message,
       status: 'success',
       relatedId: crateId
     });
-
 
     // ✅ Add notification
     const { createNotification } = require('../utils/notifications');
 
     await createNotification({
       type: 'crate',
-      message: `Crate ${crateId} assigned to order ${linkedorder}`,
+      message,
       status: 'success',
       relatedId: crateId
     });
