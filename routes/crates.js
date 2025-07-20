@@ -3,6 +3,7 @@ import Crate from '../models/Crate.js';
 import Activity from '../models/Activity.js';
 import authMiddleware from '../middleware/authMiddleware.js'; // ✅
 import authenticateToken from '../middleware/authenticateToken.js';
+import { createNotification } from '../utils/notifications.js'; // <-- adjust path if needed
 
 const router = express.Router();
 
