@@ -1,6 +1,7 @@
-const Notification = require('../models/Notification');
+// utils/notifications.js
+import Notification from '../models/Notification.js';
 
-const createNotification = async ({ type, message, status = 'info', relatedId = null }) => {
+export const createNotification = async ({ type, message, status = 'info', relatedId = null }) => {
   try {
     const newNotification = new Notification({
       type,
@@ -20,5 +21,3 @@ const createNotification = async ({ type, message, status = 'info', relatedId = 
     console.error('❌ Notification creation failed:', err.message);
   }
 };
-
-module.exports = { createNotification };
