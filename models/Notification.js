@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const NotificationSchema = new mongoose.Schema({
   type: String,
@@ -6,9 +6,8 @@ const NotificationSchema = new mongoose.Schema({
   status: { type: String, default: 'info' },
   read: { type: Boolean, default: false },
   time: { type: Date, default: Date.now },
-
-  // CHANGE THIS 👇
   relatedId: { type: String, default: null }
 });
 
-module.exports = mongoose.model('Notification', NotificationSchema);
+const Notification = mongoose.model('Notification', NotificationSchema);
+export default Notification;

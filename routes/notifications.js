@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import Notification from '../models/Notification.js';
+
 const router = express.Router();
-const Notification = require('../models/Notification');
 
 // GET all notifications (most recent first)
 router.get('/', async (req, res) => {
@@ -31,4 +32,4 @@ router.patch('/:id/read', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

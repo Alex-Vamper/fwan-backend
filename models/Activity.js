@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const activitySchema = new mongoose.Schema({
   type: { type: String, required: true },   // e.g., 'crate', 'warehouse', 'order', 'user', etc.
@@ -8,4 +8,5 @@ const activitySchema = new mongoose.Schema({
   relatedId: String, // e.g. crateId, orderId, userId for reference
 });
 
-module.exports = mongoose.model('Activity', activitySchema);
+const Activity = mongoose.model('Activity', activitySchema);
+export default Activity;

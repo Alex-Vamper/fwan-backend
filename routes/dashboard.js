@@ -1,11 +1,10 @@
-const express = require('express');
-const router = express.Router();
-const Activity = require('../models/Activity');
+import express from 'express';
+import Activity from '../models/Activity.js';
+import User from '../models/User.js';
+import Order from '../models/Order.js';
+import Product from '../models/Product.js';
 
-// Import models
-const User = require('../models/User');
-const Order = require('../models/Order');
-const Product = require('../models/Product');
+const router = express.Router();
 
 /**
  * Route: GET /api/dashboard/stats
@@ -70,4 +69,4 @@ router.get('/health', (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

@@ -1,7 +1,10 @@
-const Activity = require('../models/Activity');
-const express = require('express');
+import express from 'express';
+import Crate from '../models/Crate.js';
+import Activity from '../models/Activity.js';
+import authMiddleware from '../middleware/authMiddleware.js'; // ✅
+import authenticateToken from '../middleware/authenticateToken.js';
+
 const router = express.Router();
-const Crate = require('../models/Crate');
 
 // Helper to log activity without blocking or crashing the main flow
 async function logActivity(activity) {
@@ -16,15 +19,15 @@ async function logActivity(activity) {
  * Route: PATCH /api/crates/:crateId/thresholds
  * Purpose: Update crate threshold for ESP device
  */
-router.patch('/:crateId/thresholds', async (req, res) => {
+router.patch('/:crateId/thresholds', authMiddleware, async (req, res) => {
   console.log(`📡 Threshold route hit for ${req.params.crateId}`);
 
   try {
     const { crateId } = req.params;
     const { temperatureMin, temperatureMax, humidityMin, humidityMax } = req.body;
 
-    const crate = await Crate.findOne({ crateId });
-    if (!crate) return res.status(404).json({ error: 'Crate not found' });
+    const crate = await Crate.findOne({ crateId, userId: req.user.userId });
+    if (!crate) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
     crate.thresholds.temperature.min = temperatureMin;
     crate.thresholds.temperature.max = temperatureMax;
@@ -43,10 +46,10 @@ router.patch('/:crateId/thresholds', async (req, res) => {
  * Route: GET /api/crates/:crateId/thresholds
  * Purpose: Fetch current threshold settings for crate
  */
-router.get('/:crateId/thresholds', async (req, res) => {
+router.get('/:crateId/thresholds', authMiddleware, async (req, res) => {
   try {
-    const crate = await Crate.findOne({ crateId: req.params.crateId });
-    if (!crate) return res.status(404).json({ error: 'Crate not found' });
+    const crate = await Crate.findOne({ crateId: req.params.crateId, userId: req.user.userId });
+    if (!crate) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
     const { temperature, humidity } = crate.thresholds || {};
     res.json({
@@ -61,11 +64,12 @@ router.get('/:crateId/thresholds', async (req, res) => {
   }
 });
 
+
 /**
  * Route: POST /api/crates/register
  * Purpose: Register a new crate
  */
-router.post('/register', async (req, res) => {
+router.post('/register', authMiddleware, async (req, res) => {
   const { crateId, assignedWarehouse } = req.body;
 
   if (!crateId || !assignedWarehouse) {
@@ -78,7 +82,12 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Crate with this ID already exists' });
     }
 
-    const newCrate = new Crate({ crateId, assignedWarehouse });
+    const newCrate = new Crate({
+      crateId,
+      assignedWarehouse,
+      userId: req.user.userId  // 👈 Associate crate with the current user
+    });
+
     await newCrate.save();
 
     // Log activity
@@ -90,8 +99,6 @@ router.post('/register', async (req, res) => {
     });
 
     // Create notification
-    const { createNotification } = require('../utils/notifications');
-
     await createNotification({
       type: 'crate',
       message: `New crate registered: ${newCrate.crateId}`,
@@ -108,11 +115,11 @@ router.post('/register', async (req, res) => {
 
 /**
  * Route: GET /api/crates
- * Purpose: Fetch all crates
+ * Purpose: Fetch all crates (only for logged-in user)
  */
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const crates = await Crate.find().lean(); // lean makes them plain JS
+    const crates = await Crate.find({ userId: req.user.userId }).lean(); // 👈 Filter by user
     const formatted = crates.map(crate => ({
       ...crate,
       crateId: crate.crateId || crate._id?.toString(),
@@ -124,20 +131,20 @@ router.get('/', async (req, res) => {
   }
 });
 
+
 /**
  * Route: GET /api/crates/:crateId/telemetry
- * Purpose: Get only telemetry data for crate
+ * Purpose: Get only telemetry data for crate (restricted to owner)
  */
-router.get('/:crateId/telemetry', async (req, res) => {
+router.get('/:crateId/telemetry', authMiddleware, async (req, res) => {
   const { crateId } = req.params;
 
   try {
-    const crate = await Crate.findOne({ crateId });
+    const crate = await Crate.findOne({ crateId, userId: req.user.userId });
     if (!crate) {
-      return res.status(404).json({ message: 'Crate not found' });
+      return res.status(404).json({ message: 'Crate not found or unauthorized' });
     }
 
-    // Return only telemetry-related fields
     const telemetry = {
       temperature: crate.temperature,
       humidity: crate.humidity,
@@ -159,14 +166,14 @@ router.get('/:crateId/telemetry', async (req, res) => {
 
 /**
  * Route: GET /api/crates/:crateId
- * Purpose: Get a single crate
+ * Purpose: Get a single crate (restricted to owner)
  */
-router.get('/:crateId', async (req, res) => {
+router.get('/:crateId', authMiddleware, async (req, res) => {
   const { crateId } = req.params;
 
   try {
-    const crate = await Crate.findOne({ crateId }).lean();
-    if (!crate) return res.status(404).json({ error: 'Crate not found' });
+    const crate = await Crate.findOne({ crateId, userId: req.user.userId }).lean();
+    if (!crate) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
     crate.crateId = crate.crateId || crate._id?.toString();
     res.json({ crate });
@@ -176,16 +183,17 @@ router.get('/:crateId', async (req, res) => {
   }
 });
 
+
 /**
  * Route: PATCH /api/crates/:crateId
  * Purpose: Update telemetry and status
  */
-router.patch('/:crateId', async (req, res) => {
+router.patch('/:crateId', authenticateToken, async (req, res) => {
   const { crateId } = req.params;
 
   try {
-    const crate = await Crate.findOne({ crateId });
-    if (!crate) return res.status(404).json({ error: 'Crate not found' });
+    const crate = await Crate.findOne({ crateId, userId: req.user.userId });
+    if (!crate) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
     const {
       temperature, humidity, condition, crateStatus,
@@ -194,11 +202,6 @@ router.patch('/:crateId', async (req, res) => {
     } = req.body;
 
     console.log('📥 Incoming telemetry for crate:', crateId);
-    console.log('🌡 Temperature:', temperature);
-    console.log('💧 Humidity:', humidity);
-    console.log('📦 Crate Status:', crateStatus);
-    console.log('❄ Cooling Unit:', coolingUnit);
-    console.log('📡 Sensors:', sensors);
 
     if (temperature !== undefined) crate.temperature = temperature;
     if (humidity !== undefined) crate.humidity = humidity;
@@ -214,7 +217,6 @@ router.patch('/:crateId', async (req, res) => {
     if (humidityUpper !== undefined) crate.humidityUpper = humidityUpper;
     if (humidityLower !== undefined) crate.humidityLower = humidityLower;
 
-    // Auto status change logic
     if (
       crateStatus === 'Closed' &&
       coolingUnit === 'Active' &&
@@ -223,8 +225,6 @@ router.patch('/:crateId', async (req, res) => {
       crate.status = 'in_transit';
       console.log('🚚 Auto status change to in_transit triggered.');
     }
-
-    console.log('🕒 lastUpdate =', new Date());
 
     crate.lastUpdate = new Date();
     await crate.save();
@@ -242,13 +242,13 @@ router.patch('/:crateId', async (req, res) => {
  * Route: POST /api/crates/:crateId/assign-order
  * Purpose: Assign crate to an order
  */
-router.post('/:crateId/assign-order', async (req, res) => {
+router.post('/:crateId/assign-order', authenticateToken, async (req, res) => {
   const { crateId } = req.params;
   const { linkedOrder, location } = req.body;
 
   try {
-    const crate = await Crate.findOne({ crateId });
-    if (!crate) return res.status(404).json({ error: 'Crate not found' });
+    const crate = await Crate.findOne({ crateId, userId: req.user.userId });
+    if (!crate) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
     crate.linkedOrder = linkedOrder;
     crate.location = location;
@@ -258,16 +258,7 @@ router.post('/:crateId/assign-order', async (req, res) => {
 
     const message = `Crate ${crateId} assigned to order ${linkedOrder}`;
 
-    await logActivity({
-      type: 'crate',
-      message,
-      status: 'success',
-      relatedId: crateId
-    });
-
-    // ✅ Add notification
-    const { createNotification } = require('../utils/notifications');
-
+    const { createNotification } = await import('../utils/notifications.js');
     await createNotification({
       type: 'crate',
       message,
@@ -286,13 +277,18 @@ router.post('/:crateId/assign-order', async (req, res) => {
 /**
  * Route: DELETE /api/crates/:crateId
  * Purpose: Permanently delete crate
+ * Access: Authenticated + Owner only
  */
-router.delete('/:crateId', async (req, res) => {
+router.delete('/:crateId', authenticateToken, async (req, res) => {
   const { crateId } = req.params;
 
   try {
-    const deleted = await Crate.findOneAndDelete({ crateId });
-    if (!deleted) return res.status(404).json({ error: 'Crate not found' });
+    const deleted = await Crate.findOneAndDelete({
+      crateId,
+      userId: req.user.id // 🔒 Only delete if owned by logged-in user
+    });
+
+    if (!deleted) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
     await logActivity({
       type: 'crate',
@@ -301,8 +297,7 @@ router.delete('/:crateId', async (req, res) => {
       relatedId: crateId
     });
 
-    // ✅ Add notification
-    const { createNotification } = require('../utils/notifications');
+    const { createNotification } = await import('../utils/notifications.js');
 
     await createNotification({
       type: 'crate',
@@ -321,15 +316,21 @@ router.delete('/:crateId', async (req, res) => {
 /**
  * Route: PATCH /api/crates/:crateId/flag
  * Purpose: Flag a crate with issue type and description
+ * Access: Authenticated + Owner only
  */
-router.patch('/:crateId/flag', async (req, res) => {
+router.patch('/:crateId/flag', authenticateToken, async (req, res) => {
   const { crateId } = req.params;
   const { reason, description } = req.body;
 
   console.log(`🚩 Flag route hit for ${crateId}`);
+
   try {
-    const crate = await Crate.findOne({ crateId });
-    if (!crate) return res.status(404).json({ error: 'Crate not found' });
+    const crate = await Crate.findOne({
+      crateId,
+      userId: req.user.id // 🔒 Must be user's crate
+    });
+
+    if (!crate) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
     if (crate.status !== 'flagged') {
       crate.previousStatus = crate.status;
@@ -350,8 +351,7 @@ router.patch('/:crateId/flag', async (req, res) => {
       relatedId: crateId
     });
 
-    // ✅ Add notification
-    const { createNotification } = require('../utils/notifications');
+    const { createNotification } = await import('../utils/notifications.js');
 
     await createNotification({
       type: 'crate',
@@ -370,13 +370,18 @@ router.patch('/:crateId/flag', async (req, res) => {
 /**
  * Route: PATCH /api/crates/:crateId/resolve
  * Purpose: Restore flagged crate to previous status
+ * Access: Authenticated + Owner only
  */
-router.patch('/:crateId/resolve', async (req, res) => {
+router.patch('/:crateId/resolve', authenticateToken, async (req, res) => {
   const { crateId } = req.params;
 
   try {
-    const crate = await Crate.findOne({ crateId });
-    if (!crate) return res.status(404).json({ error: 'Crate not found' });
+    const crate = await Crate.findOne({
+      crateId,
+      userId: req.user.id // 🔒 Only resolve if owned by logged-in user
+    });
+
+    if (!crate) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
     crate.status = crate.previousStatus || 'available';
     crate.previousStatus = null;
@@ -394,8 +399,7 @@ router.patch('/:crateId/resolve', async (req, res) => {
       relatedId: crateId
     });
 
-    // ✅ Add notification
-    const { createNotification } = require('../utils/notifications');
+    const { createNotification } = await import('../utils/notifications.js');
 
     await createNotification({
       type: 'crate',
@@ -406,8 +410,9 @@ router.patch('/:crateId/resolve', async (req, res) => {
 
     res.json({ message: 'Crate resolved successfully.' });
   } catch (err) {
+    console.error('❌ Resolve error:', err);
     res.status(500).json({ error: 'Server error resolving crate flag.' });
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,11 +1,13 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const CrateSchema = new mongoose.Schema({
   crateId: { type: String, required: true, unique: true },
-  location: { type: String, default: '' }, // Delivery destination
-  locationDetails: { type: String, default: '' }, // Current GPS-based location
-  assignedWarehouse: { type: String, default: '' }, // Assigned base warehouse
-  previousStatus: { type: String, default: null }, 
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+  location: { type: String, default: '' },
+  locationDetails: { type: String, default: '' },
+  assignedWarehouse: { type: String, default: '' },
+  previousStatus: { type: String, default: null },
 
   status: {
     type: String,
@@ -14,7 +16,7 @@ const CrateSchema = new mongoose.Schema({
   },
   condition: {
     type: String,
-    enum: ['Excellent', 'Good', 'Fair', 'Poor', 'flagged'], // ✅ 'flagged' lowercase added
+    enum: ['Excellent', 'Good', 'Fair', 'Poor', 'flagged'],
     default: 'Excellent'
   },
 
@@ -28,7 +30,7 @@ const CrateSchema = new mongoose.Schema({
   temperature: { type: String, default: null },
   humidity: { type: String, default: null },
 
-  crateStatus: { type: String, default: 'Open' }, // Open | Closed
+  crateStatus: { type: String, default: 'Open' },
   coolingUnit: { type: String, default: 'Inactive' },
   sensors: { type: String, default: 'Offline' },
 
@@ -51,4 +53,5 @@ const CrateSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('Crate', CrateSchema);
+const Crate = mongoose.model('Crate', CrateSchema);
+export default Crate;

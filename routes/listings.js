@@ -1,7 +1,9 @@
-const express = require('express');
+import express from 'express';
+import Listing from '../models/Listing.js';
+import Activity from '../models/Activity.js';
+import { createNotification } from '../utils/notifications.js';
+
 const router = express.Router();
-const Listing = require('../models/Listing');
-const Activity = require('../models/Activity');
 
 // Helper to log activity
 async function logActivity(activity) {
@@ -51,7 +53,6 @@ router.patch('/:listingId/flag', async (req, res) => {
       relatedId: listingId
     });
 
-    const { createNotification } = require('../utils/notifications');
     await createNotification({
       type: 'listing',
       message: `Listing ${listingId} flagged: ${category} - ${reason}`,
@@ -87,7 +88,6 @@ router.patch('/:listingId/delist', async (req, res) => {
       relatedId: listingId
     });
 
-    const { createNotification } = require('../utils/notifications');
     await createNotification({
       type: 'listing',
       message: `Listing ${listingId} was de-listed`,
@@ -126,7 +126,6 @@ router.patch('/:listingId/resolve', async (req, res) => {
       relatedId: listingId
     });
 
-    const { createNotification } = require('../utils/notifications');
     await createNotification({
       type: 'listing',
       message: `Listing ${listingId} flag resolved`,
@@ -141,4 +140,4 @@ router.patch('/:listingId/resolve', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

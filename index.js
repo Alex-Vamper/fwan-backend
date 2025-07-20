@@ -1,51 +1,51 @@
-const cors = require('cors');
-const express = require('express');
-const connectDB = require('./db');
+import cors from 'cors';
+import express from 'express';
+import connectDB from './db.js'; // <-- note the .js extension
+
+// Route imports
+import crateRoutes from './routes/crates.js';
+import dashboardRoutes from './routes/dashboard.js';
+import userRoutes from './routes/users.js';
+import notificationsRoute from './routes/notifications.js';
+import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth.js';
 
 const app = express();
 const PORT = 3000;
 
-// Parse JSON first
-app.use(express.json());
-
-// ✅ Use robust CORS config allowing localhost and deployed frontend
+// ✅ CORS Configuration
 const allowedOrigins = [
   'http://localhost:8080',
-  'https://fwan-admin.vercel.app' // <--- Replace with your actual Vercel frontend URL
+  'https://fwan-admin.vercel.app'
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // allow requests with no origin (like Postman, curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    if (!origin) return callback(null, true); // Allow requests like Postman
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed from this origin: ' + origin));
     }
-    return callback(null, true);
   },
+  credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Routes
-const crateRoutes = require('./routes/crates');
-console.log('📡 Mounting crate routes at /api/crates');
+// ✅ Middleware
+app.use(express.json());
+
+// ✅ Mount routes
+console.log('📡 Mounting routes...');
 app.use('/api/crates', crateRoutes);
-
-const dashboardRoutes = require('./routes/dashboard');
 app.use('/api/dashboard', dashboardRoutes);
-
-const userRoutes = require('./routes/users');
 app.use('/api/users', userRoutes);
-
-const notificationsRoute = require('./routes/notifications');
 app.use('/api/notifications', notificationsRoute);
-
-const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
+app.use('/api/auth', authRoutes);
 
-// Connect to MongoDB and start server
+// ✅ Connect to DB and start server
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
