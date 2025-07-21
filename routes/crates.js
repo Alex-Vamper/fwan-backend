@@ -285,9 +285,13 @@ router.delete('/:crateId', authenticateToken, async (req, res) => {
 
   try {
     const deleted = await Crate.findOneAndDelete({
-      crateId,
-      userId: req.user.id // 🔒 Only delete if owned by logged-in user
+      $or: [
+        { _id: crateId },
+        { crateId: crateId }
+      ],
+      userId: req.user.id
     });
+
 
     if (!deleted) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
@@ -327,9 +331,14 @@ router.patch('/:crateId/flag', authenticateToken, async (req, res) => {
 
   try {
     const crate = await Crate.findOne({
-      crateId,
-      userId: req.user.id // 🔒 Must be user's crate
+      $or: [
+        { _id: crateId },
+        { crateId: crateId }
+      ],
+      userId: req.user.id
     });
+
+
 
     if (!crate) return res.status(404).json({ error: 'Crate not found or unauthorized' });
 
